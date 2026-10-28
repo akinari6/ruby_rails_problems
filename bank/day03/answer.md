@@ -1,29 +1,6 @@
-# Day 03
-
-| 形式 | 目安 | テーマ |
-|---|---|---|
-| A. 出力予測 | 5分 | `Hash.new` のデフォルト値と `||=` |
-| B. コードレビュー | 7分 | トランザクション内のコールバックと外部 API |
-| C. PRレビュー | 8分 | インデックス追加と NOT NULL 制約のマイグレーション |
-
----
+# Day 03 解答・解説
 
 ## A. 出力予測  `★★☆`
-
-```ruby
-h = Hash.new { |hash, k| hash[k] = k * 2 }
-h[1]
-h[2] ||= 100
-p h
-
-g = Hash.new(0)
-g[:a] += 1
-g[:b]
-p g
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ```
 {1=>2, 2=>4}
@@ -69,40 +46,10 @@ g.fetch(:x)    # => KeyError  （fetch はデフォルト値を無視する）
 - `Hash.new(0)` を JSON にしたり `to_a` したりしても、参照しただけのキーは出てこない。「画面には 0 と出ていたのに保存されない」という形で現れる
 - デフォルト値付きハッシュに `h[k].nil?` で存在判定すると常に false になる。`key?` を使う
 - `||=` は「nil か false のときだけ代入」。`0` や `""` は真なので代入されない（Ruby で偽は `nil` と `false` だけ）
-</details>
 
 ---
 
 ## B. コードレビュー  `★★★`
-
-問題点をすべて挙げてください。
-
-```ruby
-class Order < ApplicationRecord
-  after_create :send_confirmation_mail
-
-  private
-
-  def send_confirmation_mail
-    OrderMailer.confirmation(self).deliver_later
-  end
-end
-
-class OrdersController < ApplicationController
-  def create
-    Order.transaction do
-      @order = Order.create!(order_params)
-      PaymentGateway.charge!(@order)  # 決済失敗時は例外を投げる
-    end
-    redirect_to @order
-  rescue PaymentGateway::Error
-    redirect_to new_order_path, alert: "決済に失敗しました"
-  end
-end
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ### 指摘事項
 
@@ -176,27 +123,10 @@ end
 - (b) ブロック内で保存されるモデルの**コールバック**に副作用（メール、ジョブ、外部 API、キャッシュ削除）がないか
 
 (b) は diff の外にあるので、モデルファイルを開いて `after_save` / `after_create` を grep する習慣が必要です。
-</details>
 
 ---
 
 ## C. PRレビュー  `★★★`
-
-PR タイトル: 「posts.user_id にインデックスと NOT NULL 制約を追加」
-
-```diff
-+class AddIndexAndNotNullToPostsUserId < ActiveRecord::Migration[7.1]
-+  def change
-+    add_index :posts, :user_id
-+    change_column_null :posts, :user_id, false
-+  end
-+end
-```
-
-DB は PostgreSQL、`posts` テーブルは約 3,000 万行、サービスは 24 時間稼働です。approve してよいですか。
-
-<details>
-<summary>解答・解説</summary>
 
 ### 判定: 差し戻し。本番でサービス停止を引き起こす可能性が高い
 
@@ -255,4 +185,4 @@ end
 ### 読解のコツ
 
 マイグレーションのレビューでは「正しいスキーマになるか」ではなく「**実行中に何が起きるか**」を考えます。見るべきは、対象テーブルの行数、取られるロックの種類、既存データが制約を満たしているか、の3つです。
-</details>
+

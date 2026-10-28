@@ -1,39 +1,6 @@
-# Day 07
-
-| 形式 | 目安 | テーマ |
-|---|---|---|
-| A. 出力予測 | 5分 | ブロックのスコープとクロージャ |
-| B. コードレビュー | 7分 | 全件更新のバッチ処理 |
-| C. PRレビュー | 8分 | `after_commit` と dirty tracking |
-
----
+# Day 07 解答・解説
 
 ## A. 出力予測  `★★★`
-
-```ruby
-x = 10
-[1, 2].each { |i| x += i }
-
-y = 10
-[1, 2].each { |i; y| y = i }
-
-p x, y
-
-def counter
-  count = 0
-  increment = -> { count += 1 }
-  get = -> { count }
-  [increment, get]
-end
-
-inc, get = counter
-inc.call
-inc.call
-p get.call
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ```
 13
@@ -91,28 +58,10 @@ blk.binding.local_variables   # => [:x, :blk]
 - ブロック引数 `|i|` が外側の変数と同名でも、ブロック引数は常に新しい変数（Ruby 1.9 以降）。外側は書き換わらない。警告 `shadowing outer local variable` が出ることがある
 - ブロック内で初めて代入した変数は、ブロックの外では見えない。`[1].each { z = 1 }; z` は `NameError`
 - `1.times { x = 5 }` のつもりで外側の `x` を書き換えたいなら、外側で先に `x = nil` などと宣言しておく必要がある
-</details>
 
 ---
 
 ## B. コードレビュー  `★★☆`
-
-問題点をすべて挙げてください。これは本番で1回実行する予定の rake タスクで、`users` テーブルは約 200 万行です。
-
-```ruby
-namespace :users do
-  desc "全ユーザーのスコアを再計算する"
-  task recalculate_scores: :environment do
-    User.all.each do |user|
-      user.update(score: ScoreCalculator.new(user).calculate)
-    end
-    puts "done"
-  end
-end
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ### 指摘事項
 
@@ -190,36 +139,10 @@ end
 ### 読解のコツ
 
 rake タスクやジョブで `Model.all.each` / `Model.where(...).each` / `Model.all.map` を見たら、まず対象件数を確認し、`find_each` に置き換えられないか考えます。次に、ループの中の1件あたりの SQL 発行数と、`update` 系メソッドの戻り値の扱いを見ます。
-</details>
 
 ---
 
 ## C. PRレビュー  `★★★`
-
-PR タイトル: 「メールアドレス変更時に旧アドレスへ通知メールを送る」
-
-```diff
- class User < ApplicationRecord
-   validates :email, presence: true, uniqueness: true
-+
-+  after_commit :notify_email_change
-+
-+  private
-+
-+  def notify_email_change
-+    return unless email_changed?
-+
-+    UserMailer.email_changed(self, email_was).deliver_later
-+  end
- end
-```
-
-テストは含まれていません。PR の説明には「rails console で `update!` して動作確認済み」とあります。
-
-approve してよいですか。
-
-<details>
-<summary>解答・解説</summary>
 
 ### 判定: 差し戻し。本番では通知が1通も送られない
 
@@ -303,4 +226,4 @@ u.email_before_last_save    # => 元の値
 ### 読解のコツ
 
 `after_save` / `after_commit` の中に `xxx_changed?` / `xxx_was` / `changes` があったら、ほぼ確実にバグです。`saved_change_to_xxx?` / `xxx_before_last_save` / `saved_changes` に読み替えてください。逆に `before_save` の中で `saved_change_to_xxx?` を使っていたら、それは**前回**の保存の情報を見ています。
-</details>
+

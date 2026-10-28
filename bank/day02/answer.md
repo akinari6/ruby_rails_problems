@@ -1,26 +1,6 @@
-# Day 02
-
-| 形式 | 目安 | テーマ |
-|---|---|---|
-| A. 出力予測 | 5分 | 破壊的メソッドと参照、`equal?` |
-| B. コードレビュー | 7分 | プロフィール更新と Strong Parameters |
-| C. PRレビュー | 8分 | `dependent: :destroy` の追加 |
-
----
+# Day 02 解答・解説
 
 ## A. 出力予測  `★☆☆`
-
-```ruby
-s = "abc"
-t = s
-t << "d"
-u = s + "e"
-p s, t, u
-p s.equal?(t), s.equal?(u)
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ```
 "abcd"
@@ -64,43 +44,10 @@ s.frozen?                    # => false（マジックコメントがなけれ�
 
 - 破壊的メソッドには `!` が付くとは限らない（`<<`, `concat`, `push`, `delete`, `clear`, `[]=` は `!` なしで破壊的）。逆に `!` が付いていても「破壊的」ではなく「変更がなければ nil を返す」の意味のものがある（`strip!`, `sub!`）
 - `Symbol` と `Integer` は常に同一オブジェクト（`:a.equal?(:a)` → true）。`String` は違う
-</details>
 
 ---
 
 ## B. コードレビュー  `★★☆`
-
-問題点をすべて挙げてください。
-
-```ruby
-class UsersController < ApplicationController
-  before_action :authenticate_user!
-
-  def update
-    @user = current_user
-    if @user.update(user_params)
-      redirect_to @user, notice: "更新しました"
-    else
-      render :edit
-    end
-  end
-
-  private
-
-  def user_params
-    params.require(:user).permit(:name, :email, :role)
-  end
-end
-```
-
-```ruby
-class User < ApplicationRecord
-  enum role: { member: 0, admin: 1 }
-end
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ### 指摘事項
 
@@ -158,35 +105,10 @@ render :edit, status: :unprocessable_entity
 - 所有者: `user_id`, `account_id`, `organization_id`
 
 これらが「フォームに項目がないから大丈夫」と説明されていたら、それは大丈夫ではありません。
-</details>
 
 ---
 
 ## C. PRレビュー  `★★☆`
-
-PR タイトル: 「ユーザー削除時にコメントが残ってしまう問題を修正」
-
-```diff
- class User < ApplicationRecord
--  has_many :comments
-+  has_many :comments, dependent: :destroy
- end
-```
-
-```ruby
-# 参考: 既存のコード
-class Comment < ApplicationRecord
-  belongs_to :user
-  belongs_to :post
-  has_many :likes, dependent: :destroy
-  after_destroy :decrement_post_comments_count
-end
-```
-
-`comments` テーブルには約 500 万行、アクティブなユーザーは1人あたり最大数千件のコメントを持ちます。approve してよいですか。
-
-<details>
-<summary>解答・解説</summary>
 
 ### 判定: 条件付きで差し戻し。「何を解決したいか」と「削除の規模」の確認が必要
 
@@ -229,4 +151,4 @@ end
 ### 読解のコツ
 
 `dependent:` の変更は1行でも、「削除対象の数 × 子のコールバック × 孫の関連」の掛け算で実行コストが決まります。diff の外にある子モデルの定義とテーブルの規模を必ず見に行ってください。
-</details>
+

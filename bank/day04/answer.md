@@ -1,38 +1,6 @@
-# Day 04
-
-| 形式 | 目安 | テーマ |
-|---|---|---|
-| A. 出力予測 | 5分 | ブロック・lambda・proc の `return` |
-| B. コードレビュー | 7分 | 日付とタイムゾーン |
-| C. PRレビュー | 8分 | `default_scope` による論理削除 |
-
----
+# Day 04 解答・解説
 
 ## A. 出力予測  `★★☆`
-
-```ruby
-def m1
-  [1, 2, 3].each { |x| return x if x > 1 }
-  :done
-end
-
-def m2
-  l = lambda { |x| return x * 2 }
-  r = l.call(5)
-  r + 1
-end
-
-def m3
-  pr = proc { |x| return x * 2 }
-  r = pr.call(5)
-  r + 1
-end
-
-p m1, m2, m3
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ```
 2
@@ -74,24 +42,10 @@ pr.call   # => LocalJumpError (unexpected return)
 - `Proc.new` と `proc` は同じ。`lambda` と `->(x) { }` は同じ
 - `&block` でメソッドに渡されたブロックは proc として扱われる。`block.call` 内の `return` はブロックを**書いた**メソッドから戻る（`yield` している側ではない）
 - `next` はブロックから値を返して次の繰り返しへ。ブロック内で「この要素はスキップ」なら `next`、「ループを終わらせる」なら `break`、「メソッドごと終わらせる」なら `return`
-</details>
 
 ---
 
 ## B. コードレビュー  `★★☆`
-
-問題点をすべて挙げてください。`config/application.rb` には `config.time_zone = "Tokyo"` が設定されており、本番サーバーの OS タイムゾーンは UTC です。
-
-```ruby
-class DailyReport
-  def self.todays_posts
-    Post.where("created_at >= ?", Date.today.to_s)
-  end
-end
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ### 指摘事項
 
@@ -154,41 +108,10 @@ Time.current.zone  # => "JST"
 - `Date.today`, `Time.now`, `DateTime.now`, `Time.parse` が出てきたら、`Date.current`, `Time.current`, `Time.zone.parse` に置き換えてよいか確認する
 - `to_s` や `strftime` した日付を SQL に渡しているのも危険信号。時刻オブジェクトのまま渡す
 - 「日付」の境界が絡む処理（日次集計、締め日、有効期限）は、JST 0:00〜9:00 のケースをテストに入れる
-</details>
 
 ---
 
 ## C. PRレビュー  `★★★`
-
-PR タイトル: 「投稿の論理削除に対応」
-
-```diff
- class Post < ApplicationRecord
-   belongs_to :user
-   has_many :comments, dependent: :destroy
-+
-+  default_scope { where(deleted_at: nil) }
-+
-+  def soft_delete!
-+    update!(deleted_at: Time.current)
-+  end
- end
-```
-
-```diff
- class PostsController < ApplicationController
-   def destroy
--    @post.destroy
-+    @post.soft_delete!
-     redirect_to posts_path
-   end
- end
-```
-
-`deleted_at` カラムを追加するマイグレーションは含まれています。approve してよいですか。
-
-<details>
-<summary>解答・解説</summary>
 
 ### 判定: 差し戻し。`default_scope` の影響範囲が広すぎる
 
@@ -246,4 +169,4 @@ grep -rn "Post\.\|\.post\b\|posts\." app/ lib/ --include=*.rb --include=*.erb | 
 ### 読解のコツ
 
 `default_scope` の追加は、diff 上は1行でも**そのモデルを参照するすべてのコードの変更**と同じです。「削除済みを含めるべき場所」を列挙できていない PR は差し戻してください。
-</details>
+

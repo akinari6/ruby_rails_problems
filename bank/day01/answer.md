@@ -1,27 +1,6 @@
-# Day 01
-
-| 形式 | 目安 | テーマ |
-|---|---|---|
-| A. 出力予測 | 5分 | `Array.new` の第2引数とブロック |
-| B. コードレビュー | 7分 | 投稿一覧の N+1 |
-| C. PRレビュー | 8分 | uniqueness バリデーションとユニークインデックス |
-
----
+# Day 01 解答・解説
 
 ## A. 出力予測  `★☆☆`
-
-```ruby
-a = Array.new(3, [])
-a[0] << 1
-p a
-
-b = Array.new(3) { [] }
-b[0] << 1
-p b
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ```
 [[1], [1], [1]]
@@ -57,35 +36,10 @@ b.map(&:object_id).uniq.size   # => 3
 
 - `dup` は浅いコピー。`Array.new(3, []).dup` しても中の配列は共有されたまま。深いコピーには `Marshal.load(Marshal.dump(obj))` か、要素ごとに `map(&:dup)`
 - 文字列リテラル `""` も評価ごとに新しいオブジェクト。ただし `# frozen_string_literal: true` があると同じリテラルは同じ凍結オブジェクトになり、`<<` は `FrozenError`
-</details>
 
 ---
 
 ## B. コードレビュー  `★☆☆`
-
-問題点をすべて挙げてください。
-
-```ruby
-class PostsController < ApplicationController
-  def index
-    @posts = Post.where(published: true).order(created_at: :desc)
-  end
-end
-```
-
-```erb
-<ul>
-  <% @posts.each do |post| %>
-    <li>
-      <%= post.title %> by <%= post.user.name %>
-      (<%= post.comments.count %> comments)
-    </li>
-  <% end %>
-</ul>
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ### 指摘事項
 
@@ -136,41 +90,10 @@ scope :published, -> { where(published: true) }
 ### 読解のコツ
 
 ビューの `each` の中に `.` が2つ以上つながる式（`post.user.name`）や集計（`count`, `sum`, `exists?`）があったら、まず「このループで SQL は何回飛ぶか」を数える癖をつけてください。
-</details>
 
 ---
 
 ## C. PRレビュー  `★★★`
-
-PR タイトル: 「同じメールアドレスでユーザーが重複登録できる問題を修正」
-
-```diff
- class User < ApplicationRecord
--  validates :email, presence: true
-+  validates :email, presence: true, uniqueness: true
-+
-+  def self.find_or_create_by_email(email)
-+    find_by(email: email) || create!(email: email)
-+  end
- end
-```
-
-```diff
- class SessionsController < ApplicationController
-   def create
-     auth = request.env["omniauth.auth"]
--    user = User.find_by(email: auth.info.email) || User.create!(email: auth.info.email)
-+    user = User.find_or_create_by_email(auth.info.email)
-     session[:user_id] = user.id
-     redirect_to root_path
-   end
- end
-```
-
-マイグレーションの変更はありません。approve してよいですか。
-
-<details>
-<summary>解答・解説</summary>
 
 ### 判定: 差し戻し
 
@@ -217,4 +140,4 @@ end
 - `validates ... uniqueness` を見たら反射的に「対応するユニークインデックスはあるか」「既存データに重複はないか」を確認する
 - 「マイグレーションの変更はありません」という一文は、モデルの制約を触る PR では警告として読む
 - `find_by || create` のパターンは常に競合の可能性がある。ユニーク制約 + `RecordNotUnique` の rescue、または `create_or_find_by` に置き換えられないか考える
-</details>
+

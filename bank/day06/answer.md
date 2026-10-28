@@ -1,31 +1,6 @@
-# Day 06
-
-| 形式 | 目安 | テーマ |
-|---|---|---|
-| A. 出力予測 | 5分 | `case/when` と `===` |
-| B. コードレビュー | 7分 | 検索機能と SQL インジェクション |
-| C. PRレビュー | 8分 | フラグメントキャッシュとキャッシュキー |
-
----
+# Day 06 解答・解説
 
 ## A. 出力予測  `★★☆`
-
-```ruby
-def kind(x)
-  case x
-  when Integer then :int
-  when 1..10 then :small
-  when /\A\d+\z/ then :digits
-  when ->(v) { v.respond_to?(:each) } then :enum
-  else :other
-  end
-end
-
-p [5, 5.0, "12", [1], "ab"].map { kind(_1) }
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ```
 [:int, :small, :digits, :enum, :other]
@@ -80,25 +55,10 @@ Integer === 5        # => true
 - `when String, Symbol` はカンマ区切りで OR。`when [String, Symbol]` と書くと「配列 `[String, Symbol]` と `==` か」になり、ほぼ常に false
 - `when nil` は `NilClass === x` ではなく `nil === x`（`==`）だが、結果は同じ
 - `case` に引数を書かない形（`case; when x > 0 then ...`）は、各 `when` の式を真偽値として評価する。`if/elsif` の別記法
-</details>
 
 ---
 
 ## B. コードレビュー  `★★☆`
-
-問題点をすべて挙げてください。
-
-```ruby
-class UsersController < ApplicationController
-  def search
-    @users = User.where("name LIKE '%#{params[:q]}%'")
-    render :index
-  end
-end
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ### 指摘事項
 
@@ -155,47 +115,10 @@ end
 ### 読解のコツ
 
 `where` / `order` / `pluck` / `select` / `joins` / `having` の**文字列引数に `#{}` があったら即指摘**です。例外は定数や列名のホワイトリストから選んだ値だけで、それでもコメントで説明が必要です。特に `order("#{params[:sort]}")` は見落とされがちで、`order` は `?` プレースホルダが使えないので、許可する列名を明示的に比較する必要があります。
-</details>
 
 ---
 
 ## C. PRレビュー  `★★☆`
-
-PR タイトル: 「投稿一覧の表示を高速化（フラグメントキャッシュ導入）」
-
-```diff
- <ul>
-   <% @posts.each do |post| %>
--    <li>
--      <%= post.title %> by <%= post.user.name %>
--      (<%= post.comments.size %> comments)
--    </li>
-+    <% cache post do %>
-+      <li>
-+        <%= post.title %> by <%= post.user.name %>
-+        (<%= post.comments.size %> comments)
-+      </li>
-+    <% end %>
-   <% end %>
- </ul>
-```
-
-```ruby
-# 参考: 既存のモデル（変更なし）
-class Post < ApplicationRecord
-  belongs_to :user
-  has_many :comments
-end
-
-class Comment < ApplicationRecord
-  belongs_to :post
-end
-```
-
-ステージングで計測したところ、レスポンスが 300ms から 40ms に改善したとのことです。approve してよいですか。
-
-<details>
-<summary>解答・解説</summary>
 
 ### 判定: 差し戻し。キャッシュが古くなるケースが2つある
 
@@ -279,4 +202,4 @@ end
 ### 読解のコツ
 
 `cache` ブロックを見たら、**ブロックの中で参照しているモデルをすべて列挙**し、それぞれが変わったときにキーが変わるかを1つずつ確認してください。キーに含まれていないモデルの属性が描画されていたら、それが stale になる経路です。
-</details>
+

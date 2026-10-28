@@ -1,35 +1,6 @@
-# Day 05
-
-| 形式 | 目安 | テーマ |
-|---|---|---|
-| A. 出力予測 | 5分 | `prepend` とメソッド探索順序 |
-| B. コードレビュー | 7分 | 更新メソッド4種の違い |
-| C. PRレビュー | 8分 | ActiveJob のリトライと冪等性 |
-
----
+# Day 05 解答・解説
 
 ## A. 出力予測  `★★☆`
-
-```ruby
-module Loud
-  def greet = super.upcase
-end
-
-class Person
-  prepend Loud
-  def greet = "hi"
-end
-
-class Student < Person
-  def greet = "#{super}!"
-end
-
-p Student.new.greet
-p Student.ancestors.take(4)
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ```
 "HI!"
@@ -78,23 +49,10 @@ Student.instance_method(:greet).super_method.super_method.owner  # => Person
 - `include` を2回しても `ancestors` には1回しか入らない。順序を変えようとして `include` し直しても効かない
 - 特異クラス（`class << self` や `extend`）は `ancestors` のさらに手前にある。`obj.singleton_class.ancestors` で確認できる
 - `super` に引数を書かないと「同じ引数をそのまま渡す」。`super()` と書くと引数なしで呼ぶ。`Loud#greet` の `super` は引数なしのメソッドなのでどちらでも同じだが、引数ありのメソッドをラップするときは違いが出る
-</details>
 
 ---
 
 ## B. 違いを説明せよ  `★★☆`
-
-次の4行は、どれも `user` の `name` を `"x"` に変える。それぞれについて「バリデーション」「コールバック」「`updated_at`」「発行される SQL」「`user` インスタンスの状態」の違いを説明してください。
-
-```ruby
-user.update(name: "x")
-user.update_attribute(:name, "x")
-user.update_column(:name, "x")
-User.where(id: user.id).update_all(name: "x")
-```
-
-<details>
-<summary>解答・解説</summary>
 
 ### 比較表
 
@@ -142,31 +100,10 @@ User.where(id: user.id).update_all(name: "y")
 user.name                        # => "x"（古い）
 user.reload.name                 # => "y"
 ```
-</details>
 
 ---
 
 ## C. PRレビュー  `★★★`
-
-PR タイトル: 「決済ジョブが一時的なエラーで落ちた場合にリトライするようにした」
-
-```diff
- class ChargeOrderJob < ApplicationJob
-   queue_as :payments
-+  retry_on StandardError, wait: :polynomially_longer, attempts: 5
-
-   def perform(order)
-     result = PaymentGateway.charge!(amount: order.total, card: order.card_token)
-     order.update!(paid: true, charge_id: result.id)
-     OrderMailer.receipt(order).deliver_later
-   end
- end
-```
-
-approve してよいですか。
-
-<details>
-<summary>解答・解説</summary>
 
 ### 判定: 差し戻し。リトライで二重課金が起きる
 
@@ -237,4 +174,4 @@ end
 ### 読解のコツ
 
 `retry_on` / `rescue ... retry` / Sidekiq の `sidekiq_options retry:` を見たら、「この処理を**途中から**もう一度実行して安全か」を1ステップずつ確認してください。外部 API 呼び出し、メール送信、決済、在庫の減算は、何もしなければ冪等ではありません。
-</details>
+
