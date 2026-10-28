@@ -51,7 +51,9 @@ def create_pr(branch:, src:, dest:, title:, body:, label:)
   end
   sh "git", "add", dest
   sh "git", "commit", "-q", "-m", title
-  sh "git", "push", "-u", "origin", branch
+  # day/* と review/* はこのスクリプトだけが作るブランチなので、前回の実行が
+  # PR 作成前に失敗して残っていても上書きして再実行できるようにする
+  sh "git", "push", "-u", "--force", "origin", branch
   body_file = "/tmp/pr_body_#{branch.tr('/', '_')}.md"
   File.write(body_file, body) unless DRY
   sh "gh", "pr", "create", "--base", BASE, "--head", branch,
